@@ -1,9 +1,13 @@
 
 cc.FileUtils:getInstance():addSearchPath("src")
 cc.FileUtils:getInstance():addSearchPath("res")
+cc.FileUtils:getInstance():addSearchPath("res/image")
+cc.FileUtils:getInstance():addSearchPath("res/animation")
 
 -- CC_USE_DEPRECATED_API = true
 require "cocos.init"
+require "extend_obj"
+require "include"
 
 -- cclog
 cclog = function(...)
@@ -29,11 +33,11 @@ local function main()
     local director = cc.Director:getInstance()
     local glview = director:getOpenGLView()
     if nil == glview then
-        glview = cc.GLViewImpl:createWithRect("HelloLua", cc.rect(0,0,960,480))
+        glview = cc.GLViewImpl:createWithRect("HelloLua", cc.rect(0,0,960,640))
         director:setOpenGLView(glview)
     end
 
-    glview:setDesignResolutionSize(1920, 960, cc.ResolutionPolicy.NO_BORDER)
+    glview:setDesignResolutionSize(1280, 768, cc.ResolutionPolicy.NO_BORDER)
 
     --turn on display FPS
     director:setDisplayStats(true)
@@ -56,7 +60,8 @@ local function main()
     WinY = cc.Director:getInstance():getWinSize().height
     -- run
     local sceneGame = cc.Scene:create()
-    sceneGame:addChild(require("main_layer").new())
+    sceneGame:addChild(require("main_scene").new())
+    --sceneGame:addChild(require("a_path").new())
 
     if cc.Director:getInstance():getRunningScene() then
         cc.Director:getInstance():replaceScene(sceneGame)

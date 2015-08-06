@@ -16,8 +16,8 @@ local function posForGrid(map, pos)
 	local tileWidth = tileSize.width
 	local tileHeight = tileSize.height
 
-    cclog("mapSize: " .. mapSize.width .. "  " .. mapSize.height)
-    cclog("tileSize: " .. tileSize.width .. "  " .. tileSize.height)
+--    cclog("mapSize: " .. mapSize.width .. "  " .. mapSize.height)
+--    cclog("tileSize: " .. tileSize.width .. "  " .. tileSize.height)
 
 	
 	local tilePosDiv = cc.p(pos.x / tileWidth, pos.y / tileHeight)
@@ -46,7 +46,8 @@ local function gridForPos(map, pos) --(1, 1)  (128, 64)
 	local x = (val1 + val2) / 2 / tileSize.height
 	local y = (val2 - val1) / 2 / tileSize.width - tileSize.height / 2
 
-    cclog("pos === " .. x .. "  " .. y)
+--    cclog("grid pos === "..pos.x.."  "..pos.y)
+--    cclog("pos === " .. x .. "  " .. y)
     return cc.p(x,y)
 end
 
@@ -56,15 +57,42 @@ function main_layer:ctor()
 	map_layer:setContentSize(map:getContentSize())
 	map_layer:addChild(map)
 
-
-	local road = map:getLayer("road")
-
-	--local img_frame = ccui.ImageView:create("1.png")
+    --local img_frame = ccui.ImageView:create("1.png")
 	--img_frame:setScale(2)
 	--img_frame:setAnchorPoint(0, 0)
 	--map_layer:addChild(img_frame)
 
 	self:addChild(map_layer)
+
+    local mapSize = map:getMapSize()
+    local tileSize = map:getTileSize()
+
+	local road = map:getLayer("road")
+    local roadMap = {}
+    for x = 0, mapSize.width - 1 do
+        local col = {}
+        for y = 0, mapSize.height - 1 do
+            local gid = road:getTileGIDAt(cc.p( x, y ))
+            local uData = map:getPropertiesForGID( gid )
+            if uData and "table" == type(uData) then
+                cclog(uData["tree"])
+                --col[y] = road:getTileAt(cc.p( x, y ))
+                col[y] = tonumber(uData["tree"])
+                
+                local g = road:getTileAt(cc.p( x, y ))
+
+                local lbl = ccui.Text:create( makeKey(cc.p(x, y)), "", 25 )
+                lbl:setPosition( tileSize.width/2, tileSize.height/2 )
+                g:addChild( lbl )
+            else
+                col[y] = nil
+            end
+        end
+        roadMap[x] = col
+    end
+
+    self.pathObj = require( "path_find" ):create()
+    self.pathObj:init( roadMap )
 
 	local mapMove = true
 	local btn = ccui.Button:create("ui/add1.png", "ui/add.png", "")
@@ -77,17 +105,23 @@ function main_layer:ctor()
 	end)
 
     local item = cc.Sprite:create("item/Item1.png")
-    item:setPosition(gridForPos(map, cc.p(2, 26)))
+    item:setPosition(gridForPos(map, cc.p( 2, 26 )))
     map_layer:addChild(item)
 
 	local isMove = false
     local function onTouchBegan(touchs, event)
-    	print("began...")
+--    	print("began...")
+
+        local touch = touchs[1]
+        local pos = touch:getLocation()
+        pos = map_layer:convertToNodeSpace( pos )
+
+        --cclog( "touch   "..pos.x..":"..pos.y )
     	return true
     end
 
     local function onTouchMoved(touchs, event)
-        print("moved...")
+--        print("moved...")
 
         print(#touchs)
 
@@ -123,7 +157,7 @@ function main_layer:ctor()
     end
 
     local function onTouchEnded(touchs, event)
-		print("end...")
+--		print("end...")
 		
 		local touch  = touchs[1]
         if nil == touch then return end
@@ -142,16 +176,40 @@ function main_layer:ctor()
 		--isMove = false
 
 		pos = map:convertToNodeSpace(pos)
+        local p = posForGrid( map, pos )
 
-		local p = posForGrid(map, pos)
-		cclog(p.x .. " : " .. p.y)
+        local itemX, itemY = item:getPosition()
+        local sPos = posForGrid(map, cc.p(itemX, itemY))
+		cclog(sPos.x .. " : " .. sPos.y)
 
-		--获取图块精灵
-		local sprite = road:getTileAt(p)
-		sprite:runAction(cc.Blink:create(1, 5))
+        local path = self.pathObj:findPath( sPos, p, false )
+        if nil == path then return end
 
-		local gid = road:getTileGIDAt(p)
-		cclog("GID:" .. gid)
+        item:stopAllActions()
+        if nil ~= next(path) then
+            table.remove( path, 1 )
+
+            local function showPath()
+                local pos = path[1]
+                if nil == pos then return end
+
+                local nPos = gridForPos(map, pos)
+                item:runAction( cc.Sequence:create( cc.MoveTo:create(0.3, nPos), cc.CallFunc:create(function()
+                    table.remove( path, 1)
+                    showPath()
+                end)) )
+            end
+            showPath()
+        else
+            cclog("no  path .")
+        end
+
+--		--获取图块精灵
+--		local sprite = road:getTileAt(p)
+--		sprite:runAction(cc.Blink:create(1, 5))
+
+--		local gid = road:getTileGIDAt(p)
+--		cclog("GID:" .. gid)
 
 
 		if not mapMove then
